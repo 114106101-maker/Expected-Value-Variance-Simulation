@@ -287,139 +287,25 @@ def run_simulation(total_n, num_dice, num_sides, seed):
     
     return rolls, X, cumulative_counts, cumulative_relative, cum_target, cum_p_target
 
-def render_dice(single_roll):
-    """用真正的骰子點數（pips）顯示每顆骰子，不顯示阿拉伯數字。"""
+def render_dice_html(single_roll, animation_key=1):
     total = int(np.sum(single_roll))
-
-    # 每個數字對應骰面上的點位
-    pip_positions = {
-        1: [(2, 2)],
-        2: [(1, 1), (3, 3)],
-        3: [(1, 1), (2, 2), (3, 3)],
-        4: [(1, 1), (1, 3), (3, 1), (3, 3)],
-        5: [(1, 1), (1, 3), (2, 2), (3, 1), (3, 3)],
-        6: [(1, 1), (2, 1), (3, 1), (1, 3), (2, 3), (3, 3)],
-    }
-
-    def die_html(value, matched=False):
-        dots = []
-        for row, col in pip_positions[int(value)]:
-            dots.append(
-                f'<span style="grid-row:{row};grid-column:{col};'
-                'width:11px;height:11px;border-radius:50%;'
-                'background:#1c1c1e;display:block;"></span>'
-            )
-
-        border = "#34c759" if matched else "#1c1c1e"
-        shadow = (
-            "0 0 0 3px rgba(52,199,89,0.18), 0 6px 16px rgba(52,199,89,0.28)"
-            if matched else
-            "0 4px 14px rgba(0,0,0,0.08)"
-        )
-
-        return f"""
-        <div style="
-            width:76px;
-            min-width:76px;
-            height:76px;
-            padding:10px;
-            box-sizing:border-box;
-            background:#ffffff;
-            border:2px solid {border};
-            border-radius:16px;
-            display:flex;
-            align-items:center;
-            justify-content:center;
-            box-shadow:{shadow};
-        ">
-            <div style="
-                width:52px;
-                height:52px;
-                display:grid;
-                grid-template-columns:repeat(3, 1fr);
-                grid-template-rows:repeat(3, 1fr);
-                align-items:center;
-                justify-items:center;
-            ">
-                {''.join(dots)}
-            </div>
-        </div>
-        """
-
-    parts = []
-    for idx, val in enumerate(single_roll):
-        parts.append(f"""
-        <div style="
-            display:flex;
-            flex-direction:column;
-            align-items:center;
-            justify-content:center;
-            gap:5px;
-        ">
-            {die_html(int(val))}
-            <div style="
-                font-size:10px;
-                font-weight:600;
-                color:#8e8e93;
-                white-space:nowrap;
-            ">第 {idx + 1} 顆</div>
-        </div>
-        """)
-
-        if idx < len(single_roll) - 1:
-            parts.append("""
-            <div style="
-                font-size:24px;
-                font-weight:700;
-                color:#8e8e93;
-                padding:0 5px;
-            ">+</div>
-            """)
-
-    parts.append(f"""
-    <div style="
-        width:82px;
-        min-width:82px;
-        height:86px;
-        padding:8px;
-        box-sizing:border-box;
-        background:linear-gradient(135deg,#34c759 0%,#28a745 100%);
-        border-radius:18px;
-        display:flex;
-        flex-direction:column;
-        align-items:center;
-        justify-content:center;
-        box-shadow:0 10px 22px rgba(52,199,89,0.4);
-        text-align:center;
-        color:#ffffff;
-    ">
-        <div style="font-size:13px;font-weight:800;">點數和</div>
-        <div style="
-            font-size:28px;
-            font-weight:700;
-            line-height:1.1;
-            margin:3px 0;
-        ">{total}</div>
-        <div style="font-size:10px;font-weight:600;">X = {total}</div>
-    </div>
-    """)
-
-    html = f"""
-    <div style="
-        display:flex;
-        align-items:center;
-        justify-content:center;
-        gap:8px;
-        width:100%;
-        padding:8px 0 12px 0;
-        overflow-x:auto;
-    ">
-        {''.join(parts)}
-    </div>
-    """
-
-    # st.html 會直接把 HTML 當成網頁內容渲染，不會把標籤顯示成文字。
-    st.html(html)
+    pip_positions = {1:[(2,2)],2:[(1,1),(3,3)],3:[(1,1),(2,2),(3,3)],4:[(1,1),(1,3),(3,1),(3,3)],5:[(1,1),(1,3),(2,2),(3,1),(3,3)],6:[(1,1),(2,1),(3,1),(1,3),(2,3),(3,3)]}
+    items=[]; rules=[]
+    for idx, raw in enumerate(single_roll):
+        value=int(raw); anim=f"dicePop_{animation_key}_{idx}"
+        if value in pip_positions:
+            pos=set(pip_positions[value]); cells=[]
+            for row in range(1,4):
+                for col in range(1,4):
+                    cls="pip" if (row,col) in pos else ""; cells.append(f'<span class="{cls}"></span>')
+            face='<div class="die pip-die">'+"".join(cells)+'</div>'
+        else: face=f'<div class="die numeric-die"><span>{value}</span></div>'
+        items.append(f'<div class="die-shell" style="--anim:{anim};">{face}<div class="die-label">第 {idx+1} 顆 = {value}</div></div>')
+        if idx < len(single_roll)-1: items.append('<div class="operator">+</div>')
+        rules.append(f'@keyframes {anim} {{0%{{transform:scale(.78);opacity:.15;}}45%{{transform:scale(1.15);opacity:1;}}72%{{transform:scale(.96);}}100%{{transform:scale(1);opacity:1;}}}}')
+    items += ['<div class="operator">=</div>', f'<div class="sum-shell" style="--anim:diceSum_{animation_key};"><div class="sum-card"><div class="sum-title">點數和</div><div class="sum-value">{total}</div><div class="sum-label">X = {total}</div></div></div>']
+    rules.append(f'@keyframes diceSum_{animation_key} {{0%{{transform:scale(.72);opacity:.1;}}40%{{transform:scale(1.20);opacity:1;}}68%{{transform:scale(.96);}}100%{{transform:scale(1);opacity:1;}}}}')
+    return "<style>"+"".join(rules)+".dice-wrapper{display:flex;justify-content:center;align-items:center;gap:10px;min-height:112px;flex-wrap:wrap;padding:8px 4px 12px;font-family:-apple-system,BlinkMacSystemFont,\"SF Pro Display\",\"SF Pro Text\",\"Segoe UI\",sans-serif}.die-shell,.sum-shell{display:flex;align-items:center;justify-content:center;animation:var(--anim) 440ms cubic-bezier(.22,1,.36,1) both;transform-origin:center}.die-shell{flex-direction:column;gap:5px}.die{width:74px;height:74px;padding:10px;background:linear-gradient(145deg,#fff,#f2f2f7);border:1px solid rgba(0,0,0,.1);border-radius:18px;box-shadow:0 5px 14px rgba(0,0,0,.1)}.pip-die{display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(3,1fr);gap:3px}.pip-die span{width:100%;height:100%;display:block}.pip-die .pip{width:12px;height:12px;align-self:center;justify-self:center;border-radius:50%;background:#1c1c1e}.numeric-die{display:flex;align-items:center;justify-content:center}.numeric-die span{font-size:30px;font-weight:800;color:#1c1c1e}.die-label{color:#8e8e93;font-size:10px;font-weight:600;line-height:1.1;white-space:nowrap}.operator{color:#8e8e93;font-size:27px;font-weight:700;line-height:1}.sum-card{min-width:78px;height:92px;padding:8px 10px;border-radius:20px;display:flex;flex-direction:column;align-items:center;justify-content:center;background:linear-gradient(135deg,#34c759,#28a745);color:white;box-shadow:0 10px 25px rgba(52,199,89,.34)}.sum-title{font-size:11px;font-weight:800}.sum-value{font-size:30px;font-weight:800;line-height:1.05;margin:2px 0}.sum-label{font-size:10px;font-weight:700}"+"</style><div class=\"dice-wrapper\">"+"".join(items)+"</div>"
 
 def render_kpi_html(title_cn, title_en, val, color="#1c1c1e"):
     return textwrap.dedent(f"""
@@ -584,8 +470,10 @@ def render_frame_ui(frame_n):
     spot_kpi3.markdown(render_kpi_html(f"估算 P(X={target_x})", f"Estimated P(X={target_x})", f"{cum_p_target[idx]:.4f}", "#007AFF"), unsafe_allow_html=True)
     spot_kpi4.markdown(render_kpi_html(f"理論 P(X={target_x})", f"Theory P(X={target_x})", f"{theory_p_target:.4f}", "#FF3B30"), unsafe_allow_html=True)
 
-    with dice_spot.container():
-        render_dice(rolls[idx])
+    dice_spot.markdown(
+        render_dice_html(rolls[idx], animation_key=frame_n),
+        unsafe_allow_html=True
+    )
     chart_spot.plotly_chart(
         build_clean_plotly_chart(df_chart.iloc[:frame_n], total_n, target_x),
         use_container_width=True,
