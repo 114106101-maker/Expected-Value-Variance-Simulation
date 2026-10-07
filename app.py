@@ -168,7 +168,14 @@ def compute_exact_pmf(num_dice, num_sides):
     ways = np.round(pmf * total_outcomes).astype(int)
     return x_values, ways, pmf, total_outcomes
 
-DICE_ICONS = {1: '⚀', 2: '⚁', 3: '⚂', 4: '⚃', 5: '⚄', 6: '⚅'}
+DICE_ICONS = {
+    1: '1',
+    2: '2',
+    3: '3',
+    4: '4',
+    5: '5',
+    6: '6'
+}
 
 # 4. Session State 初始化與同步
 if "anim_status" not in st.session_state:
