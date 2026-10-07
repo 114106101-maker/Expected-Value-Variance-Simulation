@@ -494,10 +494,10 @@ def render_frame_ui(frame_n):
     spot_kpi4.markdown(render_kpi_html(f"理論 P(X={target_x})", f"Theory P(X={target_x})", f"{theory_p_target:.4f}", "#FF3B30"), unsafe_allow_html=True)
 
     dice_html = render_dice_html(rolls[idx], animation_key=f"frame-{frame_n}")
-    if hasattr(dice_spot, "html"):
-        dice_spot.html(dice_html, height=150, scrolling=False)
-    else:
-        dice_spot.markdown(dice_html, unsafe_allow_html=True)
+    # st.empty() 回傳的 DeltaGenerator 不一定提供 .html()；
+    # 使用 markdown + unsafe_allow_html 可相容較多 Streamlit 版本，
+    # 同時保留 CSS 的 hover 放大與動畫效果。
+    dice_spot.markdown(dice_html, unsafe_allow_html=True)
     chart_spot.plotly_chart(
         build_clean_plotly_chart(df_chart.iloc[:frame_n], total_n, target_x),
         use_container_width=True,
