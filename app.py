@@ -5,7 +5,7 @@ import pandas as pd
 import streamlit as st
 import plotly.graph_objects as go
 
-# 1. 頁面配置(Page Configuration)
+# 1. 頁面配置 (Page Configuration)
 st.set_page_config(
     page_title="🎲 骰子相配實驗 | Dice Matching Experiment",
     page_icon="🎲",
@@ -135,7 +135,7 @@ div[data-testid="stSidebar"] {
     border-right: 1px solid rgba(0, 0, 0, 0.06);
 }
 
-/* --- 按鈕風格動畫 (控制面板)  Button-style animation (Control Panel) --- */
+/* --- 按鈕風格動畫 (控制面板) Button-style animation (Control Panel) --- */
 div.stButton > button {
     border-radius: 16px !important;
     background-color: #ffffff !important;
@@ -170,7 +170,7 @@ div.stButton > button:active {
     transition: transform 0.1s ease !important;
 }
 
-/* 主要按鈕 (Start) 特殊 Dock 光澤與放大  (Main button (Start) with special Dock finish and magnification.)*/
+/* 主要按鈕 (Start) 特殊 Dock 光澤與放大 (Main button (Start) with special Dock finish and magnification) */
 div.stButton > button[kind="primary"] {
     background: linear-gradient(135deg, #007aff 0%, #0056b3 100%) !important;
     border: none !important;
@@ -188,7 +188,6 @@ div.stButton > button[kind="primary"]:hover {
 }
 </style>
 """)
-
 
 st.markdown(custom_css, unsafe_allow_html=True)
 
@@ -256,7 +255,7 @@ def run_simulation(total_n, seed):
 
     cumulative_relative = cumulative_counts / np.arange(1, total_n + 1)[:, None]
 
-    # 特別保留 X=7 的收斂軌跡，讓原本的動畫/儀表板功能可以延續
+    # 特別保留 X=7 的收斂軌跡
     x7_index = 7 - 2
     cum_x7 = cumulative_counts[:, x7_index]
     cum_p_x7 = cumulative_relative[:, x7_index]
@@ -265,9 +264,7 @@ def run_simulation(total_n, seed):
 
 
 def build_clean_plotly_chart(df_data, total_n_setting):
-    """
-    保留原本「收斂軌跡」的功能，改成觀察 P(X=7)。
-    """
+    """觀察 P(X=7) 的收斂軌跡。"""
     df_reset = df_data.reset_index().rename(columns={'index': 'n'})
 
     fig = go.Figure()
