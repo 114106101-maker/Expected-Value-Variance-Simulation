@@ -288,250 +288,138 @@ def run_simulation(total_n, num_dice, num_sides, seed):
     return rolls, X, cumulative_counts, cumulative_relative, cum_target, cum_p_target
 
 def render_dice(single_roll):
+    """用真正的骰子點數（pips）顯示每顆骰子，不顯示阿拉伯數字。"""
     total = int(np.sum(single_roll))
 
-    # 使用 Streamlit 原生 columns 顯示，避免 HTML 被當成文字輸出
-    cols = st.columns(len(single_roll) * 2 + 1)
-    col_index = 0
+    # 每個數字對應骰面上的點位
+    pip_positions = {
+        1: [(2, 2)],
+        2: [(1, 1), (3, 3)],
+        3: [(1, 1), (2, 2), (3, 3)],
+        4: [(1, 1), (1, 3), (3, 1), (3, 3)],
+        5: [(1, 1), (1, 3), (2, 2), (3, 1), (3, 3)],
+        6: [(1, 1), (2, 1), (3, 1), (1, 3), (2, 3), (3, 3)],
+    }
 
-    for idx, val in enumerate(single_roll):
-        val = int(val)
-
-        with cols[col_index]:
-            st.markdown(
-                f"""
-                <div style="
-                    min-width:75px;
-                    height:85px;
-                    padding:8px;
-                    background:#ffffff;
-                    border-radius:18px;
-                    display:flex;
-                    flex-direction:column;
-                    align-items:center;
-                    justify-content:center;
-                    box-shadow:0 4px 14px rgba(0,0,0,0.06);
-                    border:1px solid rgba(0,0,0,0.08);
-                    text-align:center;
-                ">
-                    <div style="
-                        width:46px;
-                        height:46px;
-                        border-radius:10px;
-                        background:#ffffff;
-                        border:2px solid #1c1c1e;
-                        display:flex;
-                        align-items:center;
-                        justify-content:center;
-                        font-size:26px;
-                        font-weight:700;
-                        color:#1c1c1e;
-                    ">{val}</div>
-                    <div style="
-                        font-size:10px;
-                        font-weight:600;
-                        color:#8e8e93;
-                        margin-top:4px;
-                    ">第 {idx + 1} 顆</div>
-                </div>
-                """,
-                unsafe_allow_html=True
+    def die_html(value, matched=False):
+        dots = []
+        for row, col in pip_positions[int(value)]:
+            dots.append(
+                f'<span style="grid-row:{row};grid-column:{col};'
+                'width:11px;height:11px;border-radius:50%;'
+                'background:#1c1c1e;display:block;"></span>'
             )
 
-        col_index += 1
-
-        if idx < len(single_roll) - 1:
-            with cols[col_index]:
-                st.markdown(
-                    "<div style='font-size:24px;font-weight:700;color:#8e8e93;text-align:center;padding-top:25px;'>+</div>",
-                    unsafe_allow_html=True
-                )
-            col_index += 1
-
-    with cols[col_index]:
-        st.markdown(
-            f"""
-            <div style="
-                min-width:75px;
-                height:85px;
-                padding:8px;
-                background:linear-gradient(135deg,#34c759 0%,#28a745 100%);
-                border-radius:18px;
-                display:flex;
-                flex-direction:column;
-                align-items:center;
-                justify-content:center;
-                box-shadow:0 10px 22px rgba(52,199,89,0.4);
-                text-align:center;
-                color:#ffffff;
-            ">
-                <div style="font-size:14px;font-weight:800;">點數和</div>
-                <div style="
-                    font-size:32px;
-                    font-weight:700;
-                    line-height:1.1;
-                    margin:3px 0;
-                    color:#ffffff;
-                ">{total}</div>
-                <div style="font-size:10px;font-weight:600;">X = {total}</div>
-            </div>
-            """,
-            unsafe_allow_html=True
+        border = "#34c759" if matched else "#1c1c1e"
+        shadow = (
+            "0 0 0 3px rgba(52,199,89,0.18), 0 6px 16px rgba(52,199,89,0.28)"
+            if matched else
+            "0 4px 14px rgba(0,0,0,0.08)"
         )
 
-def render_kpi_html(title_cn, title_en, val, color="#1c1c1e"):
-    return textwrap.dedent(f"""
-    <div class="ios-kpi-card">
-        <div class="ios-kpi-title">{title_cn}<br><span style="font-size:10px;">{title_en}</span></div>
-        <div class="ios-kpi-value" style="color: {color};">{val}</div>
+        return f"""
+        <div style="
+            width:76px;
+            min-width:76px;
+            height:76px;
+            padding:10px;
+            box-sizing:border-box;
+            background:#ffffff;
+            border:2px solid {border};
+            border-radius:16px;
+            display:flex;
+            align-items:center;
+            justify-content:center;
+            box-shadow:{shadow};
+        ">
+            <div style="
+                width:52px;
+                height:52px;
+                display:grid;
+                grid-template-columns:repeat(3, 1fr);
+                grid-template-rows:repeat(3, 1fr);
+                align-items:center;
+                justify-items:center;
+            ">
+                {''.join(dots)}
+            </div>
+        </div>
+        """
+
+    parts = []
+    for idx, val in enumerate(single_roll):
+        parts.append(f"""
+        <div style="
+            display:flex;
+            flex-direction:column;
+            align-items:center;
+            justify-content:center;
+            gap:5px;
+        ">
+            {die_html(int(val))}
+            <div style="
+                font-size:10px;
+                font-weight:600;
+                color:#8e8e93;
+                white-space:nowrap;
+            ">第 {idx + 1} 顆</div>
+        </div>
+        """)
+
+        if idx < len(single_roll) - 1:
+            parts.append("""
+            <div style="
+                font-size:24px;
+                font-weight:700;
+                color:#8e8e93;
+                padding:0 5px;
+            ">+</div>
+            """)
+
+    parts.append(f"""
+    <div style="
+        width:82px;
+        min-width:82px;
+        height:86px;
+        padding:8px;
+        box-sizing:border-box;
+        background:linear-gradient(135deg,#34c759 0%,#28a745 100%);
+        border-radius:18px;
+        display:flex;
+        flex-direction:column;
+        align-items:center;
+        justify-content:center;
+        box-shadow:0 10px 22px rgba(52,199,89,0.4);
+        text-align:center;
+        color:#ffffff;
+    ">
+        <div style="font-size:13px;font-weight:800;">點數和</div>
+        <div style="
+            font-size:28px;
+            font-weight:700;
+            line-height:1.1;
+            margin:3px 0;
+        ">{total}</div>
+        <div style="font-size:10px;font-weight:600;">X = {total}</div>
     </div>
     """)
 
-def build_clean_plotly_chart(df_data, total_n_setting, target_x_val):
-    df_reset = df_data.reset_index().rename(columns={'index': 'n'})
-    fig = go.Figure()
-    fig.add_trace(go.Scatter(
-        x=df_reset['n'],
-        y=df_reset[f'理論 P(X={target_x_val})'],
-        mode='lines',
-        name=f'理論 P(X={target_x_val})',
-        line=dict(color='#FF3B30', width=2, dash='dash'),
-        hovertemplate=f'理論 P(X={target_x_val}): %{{y:.4f}}<extra></extra>'
-    ))
-    fig.add_trace(go.Scatter(
-        x=df_reset['n'],
-        y=df_reset[f'模擬 P(X={target_x_val})'],
-        mode='lines+markers',
-        name=f'模擬 P(X={target_x_val})',
-        line=dict(color='#007AFF', width=2.2),
-        marker=dict(size=4, color='#007AFF', opacity=0.85),
-        hovertemplate=f'模擬次數 n: %{{x}}<br>模擬 P(X={target_x_val}): %{{y:.4f}}<extra></extra>'
-    ))
-    fig.update_layout(
-        height=380,
-        margin=dict(l=10, r=10, t=25, b=10),
-        paper_bgcolor='#ffffff',
-        plot_bgcolor='#ffffff',
-        hovermode='x unified',
-        xaxis=dict(
-            title='模擬次數 (n) / Total Simulations (n)',
-            range=[1, max(total_n_setting, 10)],
-            showgrid=True,
-            gridcolor='#f2f2f7',
-            zeroline=False
-        ),
-        yaxis=dict(
-            title=f'P(X={target_x_val}) / Relative Frequency',
-            range=[0, min(1.0, max(0.2, theory_p_target * 2.2))],
-            showgrid=True,
-            gridcolor='#f2f2f7',
-            zeroline=False,
-            tickformat='.3f'
-        ),
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
-        uirevision='constant'
-    )
-    return fig
-
-def build_distribution_chart(relative_frequency):
-    fig = go.Figure()
-    fig.add_trace(go.Bar(
-        x=X_VALUES,
-        y=THEORETICAL_PMF,
-        name='理論機率 / Theoretical PMF',
-        opacity=0.55,
-        marker_color='#FF3B30',
-        hovertemplate='X=%{x}<br>理論機率=%{y:.4f}<extra></extra>'
-    ))
-    fig.add_trace(go.Scatter(
-        x=X_VALUES,
-        y=relative_frequency,
-        mode='lines+markers',
-        name='模擬相對次數 / Simulation',
-        line=dict(color='#007AFF', width=3),
-        marker=dict(size=8, color='#007AFF'),
-        hovertemplate='X=%{x}<br>模擬相對次數=%{y:.4f}<extra></extra>'
-    ))
-    fig.update_layout(
-        height=450,
-        margin=dict(l=10, r=10, t=45, b=10),
-        paper_bgcolor='#ffffff',
-        plot_bgcolor='#ffffff',
-        hovermode='x unified',
-        title=f'X 的機率分布圖與模擬結果 ({num_dice}顆 {num_sides}面骰)',
-        xaxis=dict(title='X = 點數和', tickmode='linear', dtick=1 if len(X_VALUES)<30 else None, showgrid=True, gridcolor='#f2f2f7'),
-        yaxis=dict(title='機率 / 相對次數', tickformat='.3f', showgrid=True, gridcolor='#f2f2f7'),
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
-    )
-    return fig
-
-# 7. 主頁面內容
-st.markdown(textwrap.dedent(f"""
-<div class="card">
-    <div style="font-size: 22px; font-weight: 800; margin-bottom: 8px; color: #1c1c1e;">
-        🎲 自訂骰子機率分布模擬實驗
+    html = f"""
+    <div style="
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        gap:8px;
+        width:100%;
+        padding:8px 0 12px 0;
+        overflow-x:auto;
+    ">
+        {''.join(parts)}
     </div>
-    <div style="font-size: 14px; line-height: 1.7; color: #3a3a3c;">
-        📌 <b>當前實驗配置：</b> 同時投擲 <b>{num_dice}</b> 顆 <b>{num_sides}</b> 面公平骰子。<br>
-        🎯 <b>點數和 X 範圍：</b> {X_VALUES[0]} ～ {X_VALUES[-1]}（共 {TOTAL_OUTCOMES:,} 種可能組合）。<br>
-        🔥 <b>最常見點數和理論值：</b> P(X={target_x}) = {ways_target if 'ways_target' in locals() else WAYS[target_x_idx]}/{TOTAL_OUTCOMES} ≈ {theory_p_target:.4f}
-    </div>
-</div>
-"""), unsafe_allow_html=True)
+    """
 
-st.header("📌 (a) X 的機率質量函數（p.m.f.）")
-
-pmf_df = pd.DataFrame({
-    'X (點數和)': X_VALUES,
-    '組合數 / Ways': WAYS,
-    '理論機率 / P(X=x)': THEORETICAL_PMF
-})
-
-st.dataframe(
-    pmf_df,
-    use_container_width=True,
-    hide_index=True,
-    column_config={
-        "理論機率 / P(X=x)": st.column_config.NumberColumn(format="%.4f")
-    }
-)
-
-# 執行模擬數據計算
-rolls, X, cumulative_counts, cumulative_relative, cum_target, cum_p_target = run_simulation(total_n, num_dice, num_sides, int(seed))
-
-num_frames = min(total_n, 60)
-frame_indices = np.unique(np.linspace(1, total_n, num=num_frames, dtype=int))
-
-final_counts = cumulative_counts[-1]
-final_relative = cumulative_relative[-1]
-
-st.subheader("📈 數據儀表板 (Data Dashboard)")
-
-kpi1, kpi2, kpi3, kpi4 = st.columns(4)
-spot_kpi1 = kpi1.empty()
-spot_kpi2 = kpi2.empty()
-spot_kpi3 = kpi3.empty()
-spot_kpi4 = kpi4.empty()
-
-with st.container():
-    st.markdown("<div style='margin-top: 10px;'><b>🎲 當前丟擲結果 (Current Roll Results)</b></div>", unsafe_allow_html=True)
-    dice_spot = st.empty()
-
-with st.container():
-    st.markdown(f"<div style='margin-top: 15px;'><b>📊 P(X={target_x}) 相對頻率收斂軌跡 (Convergence Trajectory)</b></div>", unsafe_allow_html=True)
-    chart_spot = st.empty()
-
-df_chart = pd.DataFrame({
-    f'模擬 P(X={target_x})': cum_p_target,
-    f'理論 P(X={target_x})': theory_p_target
-}, index=np.arange(1, total_n + 1))
-
-plotly_config = {
-    'scrollZoom': True,
-    'displayModeBar': True,
-    'displaylogo': False,
-    'modeBarButtonsToRemove': ['lasso2d']
-}
+    # st.html 會直接把 HTML 當成網頁內容渲染，不會把標籤顯示成文字。
+    st.html(html)
 
 def render_frame_ui(frame_n):
     idx = frame_n - 1
