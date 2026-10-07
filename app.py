@@ -4,6 +4,7 @@ import textwrap
 import numpy as np
 import pandas as pd
 import streamlit as st
+import streamlit.components.v1 as components
 import plotly.graph_objects as go
 
 # 1. 頁面配置 (Page Configuration)
@@ -275,40 +276,47 @@ theory_p_target = THEORETICAL_PMF[target_x_idx]
 # 6. 模擬邏輯與 UI 渲染函數
 
 def render_sound_html(sound_type="finish", volume=0.35):
-    """產生不需要外部音檔的完成提示音。"""
+    """使用 Streamlit Components 播放完成提示音。"""
     volume = max(0.0, min(1.0, float(volume)))
     if sound_type != "finish" or volume <= 0:
-        return ""
-    return """
+        return
+
+    html = f"""
+    <html>
+    <body style="margin:0;background:transparent;overflow:hidden;">
     <script>
-    (() => {
-        try {
+    (() => {{
+        try {{
             const AudioContext = window.AudioContext || window.webkitAudioContext;
             if (!AudioContext) return;
             const ctx = new AudioContext();
-            const now = ctx.currentTime;
-            const volume = VOLUME;
+            const volume = {volume};
             const notes = [523.25, 659.25, 783.99];
-            notes.forEach((freq, i) => {
+            const now = ctx.currentTime;
+            notes.forEach((freq, i) => {{
                 const osc = ctx.createOscillator();
                 const gain = ctx.createGain();
-                const start = now + i * 0.12;
+                const start = now + i * 0.13;
                 osc.type = "sine";
                 osc.frequency.setValueAtTime(freq, start);
                 gain.gain.setValueAtTime(0.0001, start);
-                gain.gain.exponentialRampToValueAtTime(Math.max(volume, 0.0001), start + 0.02);
+                gain.gain.exponentialRampToValueAtTime(Math.max(volume, 0.001), start + 0.02);
                 gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.22);
                 osc.connect(gain);
                 gain.connect(ctx.destination);
                 osc.start(start);
                 osc.stop(start + 0.24);
-            });
-        } catch (e) {
-            console.debug("Sound playback unavailable", e);
-        }
-    })();
+            }});
+            setTimeout(() => ctx.close(), 900);
+        }} catch (e) {{
+            console.log("Audio unavailable", e);
+        }}
+    }})();
     </script>
-    """.replace("VOLUME", str(volume))
+    </body>
+    </html>
+    """
+    components.html(html, height=1, scrolling=False)
 
 @st.cache_data
 def run_simulation(total_n, num_dice, num_sides, seed):
@@ -559,7 +567,7 @@ if st.session_state.anim_status == "idle":
 elif st.session_state.anim_status == "finished":
     render_frame_ui(total_n)
     if sound_enabled:
-        st.markdown(render_sound_html("finish", sound_volume), unsafe_allow_html=True)
+        render_sound_html("finish", sound_volume)
     final_error = abs(cum_p_target[-1] - theory_p_target)
     st.success(f"🎉 模擬完成！最終估算 P(X={target_x}) = {cum_p_target[-1]:.4f}，與理論值誤差僅 {final_error:.4f}")
 
