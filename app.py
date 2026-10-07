@@ -7,7 +7,7 @@ import plotly.graph_objects as go
 
 # 1. 頁面配置 (Page Configuration)
 st.set_page_config(
-    page_title="🎲 骰子相配實驗 | Dice Matching Experiment",
+    page_title="🎲 自訂骰子相配實驗 | Multi-Dice Experiment",
     page_icon="🎲",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -63,32 +63,33 @@ html, body, .stApp, [data-testid="stAppViewContainer"], [data-testid="stHeader"]
 .dice-wrapper {
     display: flex;
     justify-content: center;
-    align-items: flex-end;
-    gap: 14px;
-    margin: 24px 0;
-    padding: 15px 0;
+    align-items: center;
+    gap: 10px;
+    margin: 20px 0;
+    padding: 10px 0;
     flex-wrap: wrap;
 }
 
 .dice-card {
-    width: 85px;
-    height: 92px;
+    min-width: 75px;
+    height: 85px;
+    padding: 8px;
     background: #ffffff;
-    border-radius: 20px;
+    border-radius: 18px;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
     box-shadow: 0 4px 14px rgba(0, 0, 0, 0.06);
     border: 1px solid rgba(0, 0, 0, 0.08);
-    transform-origin: bottom center;
-    transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.35s ease, background-color 0.3s ease;
+    transition: transform 0.3s ease;
 }
 
 .dice-icon {
-    font-size: 34px;
-    line-height: 1;
-    margin-bottom: 4px;
+    font-size: 28px;
+    font-weight: 700;
+    line-height: 1.1;
+    margin-bottom: 2px;
     color: #1c1c1e;
 }
 
@@ -97,14 +98,14 @@ html, body, .stApp, [data-testid="stAppViewContainer"], [data-testid="stHeader"]
     font-weight: 600;
     color: #8e8e93;
     text-align: center;
-    line-height: 1.2;
+    line-height: 1.1;
 }
 
 .dice-card.matched {
     background: linear-gradient(135deg, #34c759 0%, #28a745 100%);
     border: none;
-    box-shadow: 0 14px 28px rgba(52, 199, 89, 0.45);
-    transform: translateY(-12px) scale(1.28);
+    box-shadow: 0 10px 22px rgba(52, 199, 89, 0.4);
+    transform: scale(1.1);
     z-index: 10;
 }
 
@@ -155,14 +156,21 @@ div.stButton > button[kind="primary"] span {
 
 st.markdown(custom_css, unsafe_allow_html=True)
 
-# 3. 常數定義
-DICE_ICONS = {1: '⚀', 2: '⚁', 3: '⚂', 4: '⚃', 5: '⚄', 6: '⚅'}
-X_VALUES = np.arange(2, 13)
-WAYS = np.array([1, 2, 3, 4, 5, 6, 5, 4, 3, 2, 1])
-THEORETICAL_PMF = WAYS / 36
-THEORY_P_X7 = 6 / 36
+# 3. 輔助工具：多骰子機率計算 (Convolution)
+def compute_exact_pmf(num_dice, num_sides):
+    single_die = np.ones(num_sides) / num_sides
+    pmf = single_die
+    for _ in range(num_dice - 1):
+        pmf = np.convolve(pmf, single_die)
+    
+    x_values = np.arange(num_dice, num_dice * num_sides + 1)
+    total_outcomes = num_sides ** num_dice
+    ways = np.round(pmf * total_outcomes).astype(int)
+    return x_values, ways, pmf, total_outcomes
 
-# 4. Session State 初始化 (修正同步邏輯)
+DICE_ICONS = {1: '⚀', 2: '⚁', 3: '⚂', 4: '⚃', 5: '⚄', 6: '⚅'}
+
+# 4. Session State 初始化與同步
 if "anim_status" not in st.session_state:
     st.session_state.anim_status = "idle"
 if "current_step_idx" not in st.session_state:
@@ -188,46 +196,36 @@ def sync_from_input():
     st.session_state.anim_status = "idle"
     st.session_state.current_step_idx = 0
 
+def reset_anim():
+    st.session_state.anim_status = "idle"
+    st.session_state.current_step_idx = 0
+
 # 5. 側邊欄 (Sidebar)
 with st.sidebar:
     st.header("⚙️ 控制面板 (Control Panel)")
-    st.markdown("**骰子設定 (Dice Setting)**")
-    st.info("本作業固定使用 **兩顆六面公平骰子**。")
+    
+    st.markdown("**🎲 骰子參數設定**")
+    col_d1, col_d2 = st.columns(2)
+    with col_d1:
+        num_dice = st.number_input("骰子數量", min_value=1, max_value=10, value=2, step=1, on_change=reset_anim)
+    with col_d2:
+        num_sides = st.number_input("骰子面數", min_value=2, max_value=100, value=6, step=1, on_change=reset_anim)
 
     st.markdown("**模擬總次數 (N) / Total Simulations (N)**")
     col_s1, col_s2 = st.columns([3, 2])
-
     with col_s1:
-        st.slider(
-            "拉動次數 (Slider)",
-            min_value=100,
-            max_value=10000,
-            step=100,
-            key="slider_n",
-            on_change=sync_from_slider,
-            label_visibility="collapsed"
-        )
-
+        st.slider("拉動次數", 100, 10000, step=100, key="slider_n", on_change=sync_from_slider, label_visibility="collapsed")
     with col_s2:
-        st.number_input(
-            "輸入次數 (Number Input)",
-            min_value=100,
-            max_value=10000,
-            step=100,
-            key="input_n",
-            on_change=sync_from_input,
-            label_visibility="collapsed"
-        )
+        st.number_input("輸入次數", 100, 10000, step=100, key="input_n", on_change=sync_from_input, label_visibility="collapsed")
 
     total_n = st.session_state.total_n
     fps = st.slider("動畫速率 (FPS) / Speed", 2, 25, 8)
-    seed = st.number_input("隨機種子 (Seed) / Random Seed", 0, 9999, 42)
+    seed = st.number_input("隨機種子 (Seed) / Random Seed", 0, 9999, 42, on_change=reset_anim)
 
     st.divider()
 
     col_b1, col_b2, col_b3 = st.columns(3)
     start_click = col_b1.button("🚀 開始", type="primary", use_container_width=True)
-    
     pause_label = "▶️ 繼續" if st.session_state.anim_status == "paused" else "⏸️ 暫停"
     pause_click = col_b2.button(pause_label, use_container_width=True)
     quick_click = col_b3.button("⚡ 結算", use_container_width=True)
@@ -248,29 +246,63 @@ with st.sidebar:
         st.session_state.anim_status = "finished"
         st.rerun()
 
-# 6. 輔助函數
-def render_dice_html(rolls):
-    die1, die2 = int(rolls[0]), int(rolls[1])
-    total = die1 + die2
-    return f"""
-    <div class="dice-wrapper">
+# 動態計算當前骰子設定的理論 PMF
+X_VALUES, WAYS, THEORETICAL_PMF, TOTAL_OUTCOMES = compute_exact_pmf(num_dice, num_sides)
+
+# 計算理論出現機率最高的點數和 (Mode Sum) 進行重點追蹤
+target_x = int(np.floor(num_dice * (num_sides + 1) / 2))
+target_x_idx = np.where(X_VALUES == target_x)[0][0]
+theory_p_target = THEORETICAL_PMF[target_x_idx]
+
+# 6. 模擬邏輯與 UI 渲染函數
+@st.cache_data
+def run_simulation(total_n, num_dice, num_sides, seed):
+    rng = np.random.default_rng(seed)
+    rolls = rng.integers(1, num_sides + 1, size=(total_n, num_dice))
+    X = rolls.sum(axis=1)
+    
+    min_sum = num_dice
+    max_sum = num_dice * num_sides
+    num_outcomes = max_sum - min_sum + 1
+    
+    cumulative_counts = np.zeros((total_n, num_outcomes), dtype=int)
+    running_counts = np.zeros(num_outcomes, dtype=int)
+    
+    for i, x in enumerate(X):
+        running_counts[x - min_sum] += 1
+        cumulative_counts[i] = running_counts
+        
+    cumulative_relative = cumulative_counts / np.arange(1, total_n + 1)[:, None]
+    
+    t_idx = target_x - min_sum
+    cum_target = cumulative_counts[:, t_idx]
+    cum_p_target = cumulative_relative[:, t_idx]
+    
+    return rolls, X, cumulative_counts, cumulative_relative, cum_target, cum_p_target
+
+def render_dice_html(single_roll):
+    total = int(np.sum(single_roll))
+    items_html = ""
+    for idx, val in enumerate(single_roll):
+        icon = DICE_ICONS.get(int(val), str(val))
+        items_html += f"""
         <div class="dice-card">
-            <span class="dice-icon">{DICE_ICONS[die1]}</span>
-            <span class="dice-label">第一顆骰子<br>Die 1 = {die1}</span>
+            <span class="dice-icon">{icon}</span>
+            <span class="dice-label">第 {idx+1} 顆<br>={val}</span>
         </div>
-        <div style="font-size:34px;font-weight:700;color:#8e8e93;">+</div>
-        <div class="dice-card">
-            <span class="dice-icon">{DICE_ICONS[die2]}</span>
-            <span class="dice-label">第二顆骰子<br>Die 2 = {die2}</span>
-        </div>
-        <div style="font-size:34px;font-weight:700;color:#8e8e93;">=</div>
-        <div class="dice-card matched">
-            <span style="font-size:18px;font-weight:800;">X</span>
-            <span class="dice-icon" style="font-size:40px;">{total}</span>
-            <span class="dice-label">點數和<br>Sum = {total}</span>
-        </div>
+        """
+        if idx < len(single_roll) - 1:
+            items_html += '<div style="font-size:24px;font-weight:700;color:#8e8e93;">+</div>'
+            
+    items_html += f"""
+    <div style="font-size:24px;font-weight:700;color:#8e8e93;">=</div>
+    <div class="dice-card matched">
+        <span style="font-size:14px;font-weight:800;">Sum</span>
+        <span class="dice-icon" style="font-size:32px;">{total}</span>
+        <span class="dice-label">點數和<br>X = {total}</span>
     </div>
     """
+    return f'<div class="dice-wrapper">{items_html}</div>'
 
 def render_kpi_html(title_cn, title_en, val, color="#1c1c1e"):
     return textwrap.dedent(f"""
@@ -280,41 +312,25 @@ def render_kpi_html(title_cn, title_en, val, color="#1c1c1e"):
     </div>
     """)
 
-@st.cache_data
-def run_simulation(total_n, seed):
-    rng = np.random.default_rng(seed)
-    die1 = rng.integers(1, 7, size=total_n)
-    die2 = rng.integers(1, 7, size=total_n)
-    X = die1 + die2
-    cumulative_counts = np.zeros((total_n, 11), dtype=int)
-    running_counts = np.zeros(11, dtype=int)
-    for i, x in enumerate(X):
-        running_counts[x - 2] += 1
-        cumulative_counts[i] = running_counts
-    cumulative_relative = cumulative_counts / np.arange(1, total_n + 1)[:, None]
-    cum_x7 = cumulative_counts[:, 5]
-    cum_p_x7 = cumulative_relative[:, 5]
-    return die1, die2, X, cumulative_counts, cumulative_relative, cum_x7, cum_p_x7
-
-def build_clean_plotly_chart(df_data, total_n_setting):
+def build_clean_plotly_chart(df_data, total_n_setting, target_x_val):
     df_reset = df_data.reset_index().rename(columns={'index': 'n'})
     fig = go.Figure()
     fig.add_trace(go.Scatter(
         x=df_reset['n'],
-        y=df_reset['理論 P(X=7)'],
+        y=df_reset[f'理論 P(X={target_x_val})'],
         mode='lines',
-        name='理論 P(X=7)',
+        name=f'理論 P(X={target_x_val})',
         line=dict(color='#FF3B30', width=2, dash='dash'),
-        hovertemplate='理論 P(X=7): %{y:.4f}<extra></extra>'
+        hovertemplate=f'理論 P(X={target_x_val}): %{{y:.4f}}<extra></extra>'
     ))
     fig.add_trace(go.Scatter(
         x=df_reset['n'],
-        y=df_reset['模擬 P(X=7)'],
+        y=df_reset[f'模擬 P(X={target_x_val})'],
         mode='lines+markers',
-        name='模擬 P(X=7)',
+        name=f'模擬 P(X={target_x_val})',
         line=dict(color='#007AFF', width=2.2),
         marker=dict(size=4, color='#007AFF', opacity=0.85),
-        hovertemplate='模擬次數 n: %{x}<br>模擬 P(X=7): %{y:.4f}<extra></extra>'
+        hovertemplate=f'模擬次數 n: %{{x}}<br>模擬 P(X={target_x_val}): %{{y:.4f}}<extra></extra>'
     ))
     fig.update_layout(
         height=380,
@@ -330,8 +346,8 @@ def build_clean_plotly_chart(df_data, total_n_setting):
             zeroline=False
         ),
         yaxis=dict(
-            title='P(X=7) / Relative Frequency',
-            range=[0, 0.35],
+            title=f'P(X={target_x_val}) / Relative Frequency',
+            range=[0, min(1.0, max(0.2, theory_p_target * 2.2))],
             showgrid=True,
             gridcolor='#f2f2f7',
             zeroline=False,
@@ -362,28 +378,28 @@ def build_distribution_chart(relative_frequency):
         hovertemplate='X=%{x}<br>模擬相對次數=%{y:.4f}<extra></extra>'
     ))
     fig.update_layout(
-        height=480,
+        height=450,
         margin=dict(l=10, r=10, t=45, b=10),
         paper_bgcolor='#ffffff',
         plot_bgcolor='#ffffff',
         hovermode='x unified',
-        title='X 的機率分布圖與模擬結果',
-        xaxis=dict(title='X = 兩顆骰子的點數和', tickmode='linear', dtick=1, showgrid=True, gridcolor='#f2f2f7'),
-        yaxis=dict(title='機率 / 相對次數', range=[0, 0.22], tickformat='.3f', showgrid=True, gridcolor='#f2f2f7'),
+        title=f'X 的機率分布圖與模擬結果 ({num_dice}顆 {num_sides}面骰)',
+        xaxis=dict(title='X = 點數和', tickmode='linear', dtick=1 if len(X_VALUES)<30 else None, showgrid=True, gridcolor='#f2f2f7'),
+        yaxis=dict(title='機率 / 相對次數', tickformat='.3f', showgrid=True, gridcolor='#f2f2f7'),
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
     )
     return fig
 
-# 7. 主頁面內容與標題
+# 7. 主頁面內容
 st.markdown(textwrap.dedent(f"""
 <div class="card">
     <div style="font-size: 22px; font-weight: 800; margin-bottom: 8px; color: #1c1c1e;">
-        🎲 兩顆六面公平骰子機率分布模擬
+        🎲 自訂骰子機率分布模擬實驗
     </div>
     <div style="font-size: 14px; line-height: 1.7; color: #3a3a3c;">
-        📌 <b>實驗規則：</b> 每次同時擲兩顆公平六面骰，令 <b>X = 第一顆骰子 + 第二顆骰子</b>。X 的可能值為 <b>2, 3, ..., 12</b>。<br>
-        🎯 <b>X = 7 的理論機率：</b> P(X=7) = 6/36 = {THEORY_P_X7:.4f}<br>
-        📊 <b>作業需求：</b> (a) 寫出 X 的 p.m.f.； (b) 模擬擲兩顆骰子 1,000 次並比較相對次數； (c) 繪製理論與模擬機率分布圖。
+        📌 <b>當前實驗配置：</b> 同時投擲 <b>{num_dice}</b> 顆 <b>{num_sides}</b> 面公平骰子。<br>
+        🎯 <b>點數和 X 範圍：</b> {X_VALUES[0]} ～ {X_VALUES[-1]}（共 {TOTAL_OUTCOMES:,} 種可能組合）。<br>
+        🔥 <b>最常見點數和理論值：</b> P(X={target_x}) = {ways_target if 'ways_target' in locals() else WAYS[target_x_idx]}/{TOTAL_OUTCOMES} ≈ {theory_p_target:.4f}
     </div>
 </div>
 """), unsafe_allow_html=True)
@@ -391,12 +407,11 @@ st.markdown(textwrap.dedent(f"""
 st.header("📌 (a) X 的機率質量函數（p.m.f.）")
 
 pmf_df = pd.DataFrame({
-    'X': X_VALUES,
+    'X (點數和)': X_VALUES,
     '組合數 / Ways': WAYS,
     '理論機率 / P(X=x)': THEORETICAL_PMF
 })
 
-# 使用原生 column_config 格式化數字
 st.dataframe(
     pmf_df,
     use_container_width=True,
@@ -406,25 +421,14 @@ st.dataframe(
     }
 )
 
-st.latex(r"""
-P(X=x)=
-\begin{cases}
-\dfrac{x-1}{36}, & 2\le x\le 7 \\[4pt]
-\dfrac{13-x}{36}, & 8\le x\le 12 \\[4pt]
-0, & \text{otherwise}
-\end{cases}
-""")
-
 # 執行模擬數據計算
-die1, die2, X, cumulative_counts, cumulative_relative, cum_x7, cum_p_x7 = run_simulation(total_n, int(seed))
-rolls = np.column_stack([die1, die2])
+rolls, X, cumulative_counts, cumulative_relative, cum_target, cum_p_target = run_simulation(total_n, num_dice, num_sides, int(seed))
 
 num_frames = min(total_n, 60)
 frame_indices = np.unique(np.linspace(1, total_n, num=num_frames, dtype=int))
 
 final_counts = cumulative_counts[-1]
 final_relative = cumulative_relative[-1]
-p_theoretical = 6 / 36
 
 st.subheader("📈 數據儀表板 (Data Dashboard)")
 
@@ -439,12 +443,12 @@ with st.container():
     dice_spot = st.empty()
 
 with st.container():
-    st.markdown("<div style='margin-top: 15px;'><b>📊 P(X=7) 相對頻率收斂軌跡 (Convergence Trajectory)</b></div>", unsafe_allow_html=True)
+    st.markdown(f"<div style='margin-top: 15px;'><b>📊 P(X={target_x}) 相對頻率收斂軌跡 (Convergence Trajectory)</b></div>", unsafe_allow_html=True)
     chart_spot = st.empty()
 
 df_chart = pd.DataFrame({
-    '模擬 P(X=7)': cum_p_x7,
-    '理論 P(X=7)': p_theoretical
+    f'模擬 P(X={target_x})': cum_p_target,
+    f'理論 P(X={target_x})': theory_p_target
 }, index=np.arange(1, total_n + 1))
 
 plotly_config = {
@@ -460,25 +464,25 @@ def render_frame_ui(frame_n):
 
     spot_kpi1.markdown(render_kpi_html("模擬次數", "Simulations", f"{frame_n}"), unsafe_allow_html=True)
     spot_kpi2.markdown(render_kpi_html("目前 X", "Current X", f"{current_x}", "#007AFF"), unsafe_allow_html=True)
-    spot_kpi3.markdown(render_kpi_html("估算 P(X=7)", "Estimated P(X=7)", f"{cum_p_x7[idx]:.4f}", "#007AFF"), unsafe_allow_html=True)
-    spot_kpi4.markdown(render_kpi_html("理論 P(X=7)", "Theory P(X=7)", f"{p_theoretical:.4f}", "#FF3B30"), unsafe_allow_html=True)
+    spot_kpi3.markdown(render_kpi_html(f"估算 P(X={target_x})", f"Estimated P(X={target_x})", f"{cum_p_target[idx]:.4f}", "#007AFF"), unsafe_allow_html=True)
+    spot_kpi4.markdown(render_kpi_html(f"理論 P(X={target_x})", f"Theory P(X={target_x})", f"{theory_p_target:.4f}", "#FF3B30"), unsafe_allow_html=True)
 
     dice_spot.markdown(render_dice_html(rolls[idx]), unsafe_allow_html=True)
     chart_spot.plotly_chart(
-        build_clean_plotly_chart(df_chart.iloc[:frame_n], total_n),
+        build_clean_plotly_chart(df_chart.iloc[:frame_n], total_n, target_x),
         use_container_width=True,
         config=plotly_config
     )
 
-# 狀態控制與動畫渲染
+# 8. 動畫與狀態控制
 if st.session_state.anim_status == "idle":
     render_frame_ui(1)
     st.info("👈 請點擊左側面板的 **「🚀 開始」** 播放動畫，或 **「⚡ 結算」** 直接觀看結果！")
 
 elif st.session_state.anim_status == "finished":
     render_frame_ui(total_n)
-    final_error_x7 = abs(cum_p_x7[-1] - p_theoretical)
-    st.success(f"🎉 模擬完成！最終估算 P(X=7) = {cum_p_x7[-1]:.4f}，與理論值誤差僅 {final_error_x7:.4f}")
+    final_error = abs(cum_p_target[-1] - theory_p_target)
+    st.success(f"🎉 模擬完成！最終估算 P(X={target_x}) = {cum_p_target[-1]:.4f}，與理論值誤差僅 {final_error:.4f}")
 
 elif st.session_state.anim_status == "paused":
     current_n = int(frame_indices[st.session_state.current_step_idx])
@@ -500,12 +504,12 @@ elif st.session_state.anim_status == "running":
     st.session_state.anim_status = "finished"
     st.rerun()
 
-# 8. 完成/暫停狀態下的詳細分析與圖表
+# 9. 詳細統計結果與圖表
 if st.session_state.anim_status in ["paused", "finished"]:
     st.header("📊 (b) 模擬結果與理論機率比較")
 
     result_df = pd.DataFrame({
-        'X': X_VALUES,
+        'X (點數和)': X_VALUES,
         '出現次數 / Frequency': final_counts,
         '相對次數 / Relative Frequency': final_relative,
         '理論機率 / Theoretical P(X=x)': THEORETICAL_PMF,
@@ -523,68 +527,29 @@ if st.session_state.anim_status in ["paused", "finished"]:
         }
     )
 
-    st.header("📈 (c) X 的機率分布圖與模擬結果")
+    st.header("📈 (c) 機率分布對比圖")
 
     distribution_fig = build_distribution_chart(final_relative)
     st.plotly_chart(distribution_fig, use_container_width=True, config=plotly_config)
 
-    st.subheader("📋 指定模擬次數統計結果 (Summary Table)")
-
-    targets = [n for n in [50, 100, 250, 500, 750, 1000] if n <= total_n]
-    table_rows = []
-
-    for n in targets:
-        row = {'模擬次數 / Simulations (n)': n}
-        for x in [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]:
-            row[f'X={x} 相對次數'] = f"{cumulative_relative[n - 1, x - 2]:.4f}"
-        table_rows.append(row)
-
-    table_df = pd.DataFrame(table_rows)
-    st.dataframe(table_df, use_container_width=True, hide_index=True)
-
-    st.subheader("🔎 前 20 次模擬結果")
+    st.subheader("🔎 前 20 次模擬投擲紀錄")
     show_n = min(20, total_n)
-    first_20_df = pd.DataFrame({
-        '第幾次 / Trial': np.arange(1, show_n + 1),
-        '第一顆骰子 / Die 1': die1[:show_n],
-        '第二顆骰子 / Die 2': die2[:show_n],
-        'X = 點數和 / Sum': X[:show_n]
-    })
-    st.dataframe(first_20_df, use_container_width=True, hide_index=True)
+    
+    first_20_dict = {'第幾次 / Trial': np.arange(1, show_n + 1)}
+    for d_i in range(num_dice):
+        first_20_dict[f'第 {d_i+1} 顆骰子'] = rolls[:show_n, d_i]
+    first_20_dict['X = 點數和'] = X[:show_n]
+
+    st.dataframe(pd.DataFrame(first_20_dict), use_container_width=True, hide_index=True)
 
     max_error = np.max(np.abs(final_relative - THEORETICAL_PMF))
     mean_error = np.mean(np.abs(final_relative - THEORETICAL_PMF))
 
-    st.subheader("📌 理論值與模擬值誤差")
+    st.subheader("📌 理論值與模擬值總體誤差")
     e1, e2, e3 = st.columns(3)
     with e1:
         st.metric("最大絕對誤差", f"{max_error:.4f}")
     with e2:
         st.metric("平均絕對誤差", f"{mean_error:.4f}")
     with e3:
-        st.metric("P(X=7) 模擬值", f"{final_relative[5]:.4f}")
-
-    st.markdown("""
-    <div class="card">
-        <div style="font-size:20px;font-weight:800;margin-bottom:8px;">📝 實驗結論</div>
-        <div style="font-size:14px;line-height:1.8;color:#3a3a3c;">
-            兩顆公平六面骰共有 36 種等可能結果。X 為兩顆骰子的點數和，可能值為 2～12。
-            X=7 時有最多的 6 種組合，理論機率最高，為 6/36 = 1/6 ≈ 0.1667。<br><br>
-            經由隨機模擬，各 X 值的相對次數會逐漸趨近理論機率。模擬次數越多，模擬結果與理論分布的契合度越高。
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
-
-    st.subheader("✅ 作業要求完成確認")
-    checklist_df = pd.DataFrame({
-        "作業要求": [
-            "(a) 寫出 X 的 p.m.f.",
-            "(b) 電腦模擬擲兩顆骰子 1,000 次",
-            "(b) 列出結果",
-            "(b) 比較相對次數與對應機率",
-            "(c) 繪製 X 的機率分布圖",
-            "(c) 模擬結果與理論結果同圖"
-        ],
-        "完成": ["✅", "✅", "✅", "✅", "✅", "✅"]
-    })
-    st.dataframe(checklist_df, use_container_width=True, hide_index=True)
+        st.metric(f"P(X={target_x}) 模擬值", f"{final_relative[target_x_idx]:.4f}")
