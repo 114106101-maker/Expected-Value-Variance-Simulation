@@ -114,6 +114,23 @@ html, body, .stApp, [data-testid="stAppViewContainer"], [data-testid="stHeader"]
     color: #ffffff !important;
 }
 
+
+/* iOS-style dice hover + pop animation */
+.dice-hover{display:inline-flex;flex-direction:column;align-items:center;justify-content:center;transform-origin:center bottom;transition:transform 180ms cubic-bezier(.22,1,.36,1),filter 180ms ease;cursor:default;will-change:transform}
+.dice-hover:hover{transform:translateY(-7px) scale(1.20);filter:drop-shadow(0 14px 18px rgba(0,0,0,.16))}
+.dice-animation{display:block;transform-origin:center center;will-change:transform,opacity}
+@keyframes dicePopIOS{0%{transform:scale(.72) translateY(10px);opacity:.35}45%{transform:scale(1.10) translateY(-3px);opacity:1}72%{transform:scale(.96) translateY(1px)}100%{transform:scale(1) translateY(0);opacity:1}}
+.dice-animation.pop{animation:dicePopIOS 520ms cubic-bezier(.22,1,.36,1) both}
+.pip-die{width:58px;height:58px;border-radius:15px;background:linear-gradient(145deg,#fff 0%,#f2f2f7 100%);border:1px solid rgba(0,0,0,.08);box-shadow:inset 0 1px 0 rgba(255,255,255,.95),0 7px 18px rgba(0,0,0,.10);display:grid;align-items:center;justify-items:center;overflow:hidden}
+.pip-grid{width:78%;height:78%;display:grid;align-items:center;justify-items:center}
+.pip{width:11px;height:11px;border-radius:50%;background:#1c1c1e;box-shadow:inset 0 1px 1px rgba(255,255,255,.25)}
+.pip-grid.dense .pip{width:7px;height:7px}.pip-grid.ultra-dense .pip{width:5px;height:5px}
+.dice-label-ios{margin-top:6px;font-size:10px;font-weight:650;color:#8e8e93;line-height:1.1;text-align:center;white-space:nowrap}
+.dice-plus,.dice-equals{font-size:24px;font-weight:700;color:#8e8e93;display:flex;align-items:center;justify-content:center;padding:0 2px}
+.sum-card-ios{min-width:88px;height:92px;padding:8px;border-radius:18px;display:flex;flex-direction:column;align-items:center;justify-content:center;background:linear-gradient(135deg,#34c759 0%,#28a745 100%);box-shadow:0 10px 22px rgba(52,199,89,.35);border:none;transform-origin:center center}
+.sum-title-ios{font-size:11px;font-weight:800;color:#fff;margin-bottom:2px}.sum-value-ios{font-size:26px;font-weight:800;line-height:1;color:#fff}.sum-sub-ios{font-size:9px;font-weight:650;color:rgba(255,255,255,.88);margin-top:3px}
+@media (prefers-reduced-motion:reduce){.dice-hover{transition:none}.dice-animation.pop{animation:none}}
+
 div[data-testid="stSidebar"] {
     background-color: #f8f9fa !important;
     border-right: 1px solid rgba(0, 0, 0, 0.06);
@@ -168,14 +185,7 @@ def compute_exact_pmf(num_dice, num_sides):
     ways = np.round(pmf * total_outcomes).astype(int)
     return x_values, ways, pmf, total_outcomes
 
-DICE_ICONS = {
-    1: '1',
-    2: '2',
-    3: '3',
-    4: '4',
-    5: '5',
-    6: '6'
-}
+DICE_ICONS = {}  # 骰子面永遠只用圓點，不顯示數字
 
 # 4. Session State 初始化與同步
 if "anim_status" not in st.session_state:
@@ -287,25 +297,38 @@ def run_simulation(total_n, num_dice, num_sides, seed):
     
     return rolls, X, cumulative_counts, cumulative_relative, cum_target, cum_p_target
 
-def render_dice_html(single_roll, animation_key=1):
-    total = int(np.sum(single_roll))
-    pip_positions = {1:[(2,2)],2:[(1,1),(3,3)],3:[(1,1),(2,2),(3,3)],4:[(1,1),(1,3),(3,1),(3,3)],5:[(1,1),(1,3),(2,2),(3,1),(3,3)],6:[(1,1),(2,1),(3,1),(1,3),(2,3),(3,3)]}
-    items=[]; rules=[]
-    for idx, raw in enumerate(single_roll):
-        value=int(raw); anim=f"dicePop_{animation_key}_{idx}"
-        if value in pip_positions:
-            pos=set(pip_positions[value]); cells=[]
-            for row in range(1,4):
-                for col in range(1,4):
-                    cls="pip" if (row,col) in pos else ""; cells.append(f'<span class="{cls}"></span>')
-            face='<div class="die pip-die">'+"".join(cells)+'</div>'
-        else: face=f'<div class="die numeric-die"><span>{value}</span></div>'
-        items.append(f'<div class="die-shell" style="--anim:{anim};">{face}<div class="die-label">第 {idx+1} 顆 = {value}</div></div>')
-        if idx < len(single_roll)-1: items.append('<div class="operator">+</div>')
-        rules.append(f'@keyframes {anim} {{0%{{transform:scale(.78);opacity:.15;}}45%{{transform:scale(1.15);opacity:1;}}72%{{transform:scale(.96);}}100%{{transform:scale(1);opacity:1;}}}}')
-    items += ['<div class="operator">=</div>', f'<div class="sum-shell" style="--anim:diceSum_{animation_key};"><div class="sum-card"><div class="sum-title">點數和</div><div class="sum-value">{total}</div><div class="sum-label">X = {total}</div></div></div>']
-    rules.append(f'@keyframes diceSum_{animation_key} {{0%{{transform:scale(.72);opacity:.1;}}40%{{transform:scale(1.20);opacity:1;}}68%{{transform:scale(.96);}}100%{{transform:scale(1);opacity:1;}}}}')
-    return "<style>"+"".join(rules)+".dice-wrapper{display:flex;justify-content:center;align-items:center;gap:10px;min-height:112px;flex-wrap:wrap;padding:8px 4px 12px;font-family:-apple-system,BlinkMacSystemFont,\"SF Pro Display\",\"SF Pro Text\",\"Segoe UI\",sans-serif}.die-shell,.sum-shell{display:flex;align-items:center;justify-content:center;animation:var(--anim) 440ms cubic-bezier(.22,1,.36,1) both;transform-origin:center}.die-shell{flex-direction:column;gap:5px}.die{width:74px;height:74px;padding:10px;background:linear-gradient(145deg,#fff,#f2f2f7);border:1px solid rgba(0,0,0,.1);border-radius:18px;box-shadow:0 5px 14px rgba(0,0,0,.1)}.pip-die{display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(3,1fr);gap:3px}.pip-die span{width:100%;height:100%;display:block}.pip-die .pip{width:12px;height:12px;align-self:center;justify-self:center;border-radius:50%;background:#1c1c1e}.numeric-die{display:flex;align-items:center;justify-content:center}.numeric-die span{font-size:30px;font-weight:800;color:#1c1c1e}.die-label{color:#8e8e93;font-size:10px;font-weight:600;line-height:1.1;white-space:nowrap}.operator{color:#8e8e93;font-size:27px;font-weight:700;line-height:1}.sum-card{min-width:78px;height:92px;padding:8px 10px;border-radius:20px;display:flex;flex-direction:column;align-items:center;justify-content:center;background:linear-gradient(135deg,#34c759,#28a745);color:white;box-shadow:0 10px 25px rgba(52,199,89,.34)}.sum-title{font-size:11px;font-weight:800}.sum-value{font-size:30px;font-weight:800;line-height:1.05;margin:2px 0}.sum-label{font-size:10px;font-weight:700}"+"</style><div class=\"dice-wrapper\">"+"".join(items)+"</div>"
+
+def _pip_layout(value):
+    value=int(value)
+    standard={
+        1:(3,3,[(2,2)]),2:(3,3,[(1,1),(3,3)]),3:(3,3,[(1,1),(2,2),(3,3)]),
+        4:(3,3,[(1,1),(1,3),(3,1),(3,3)]),
+        5:(3,3,[(1,1),(1,3),(2,2),(3,1),(3,3)]),
+        6:(3,3,[(1,1),(2,1),(3,1),(1,3),(2,3),(3,3)])}
+    if value in standard:return standard[value]
+    cols=max(2,int(np.ceil(np.sqrt(value))))
+    rows=int(np.ceil(value/cols))
+    positions=[(i//cols+1,i%cols+1) for i in range(value)]
+    return rows,cols,positions
+
+def _pip_die_html(value):
+    rows,cols,positions=_pip_layout(value)
+    density=' ultra-dense' if value>=49 else (' dense' if value>=16 else '')
+    pos=set(positions)
+    cells=[]
+    for r in range(1,rows+1):
+        for c in range(1,cols+1):
+            cells.append('<span class="pip"></span>' if (r,c) in pos else '<span></span>')
+    return f'''<div class="pip-die"><div class="pip-grid{density}" style="grid-template-columns:repeat({cols},1fr);grid-template-rows:repeat({rows},1fr);">{''.join(cells)}</div></div>'''
+
+def render_dice_html(single_roll,animation_key="1"):
+    total=int(np.sum(single_roll)); items_html=""
+    for idx,raw_val in enumerate(single_roll):
+        val=int(raw_val)
+        items_html+=f'''<div class="dice-hover" title="第 {idx+1} 顆骰子"><div class="dice-animation pop" style="animation-delay:{idx*45}ms;animation-name:dicePopIOS;">{_pip_die_html(val)}</div><div class="dice-label-ios">第 {idx+1} 顆骰子</div></div>'''
+        if idx<len(single_roll)-1:items_html+='<div class="dice-plus">+</div>'
+    items_html+=f'''<div class="dice-equals">=</div><div class="dice-hover"><div class="dice-animation pop" style="animation-delay:{len(single_roll)*45}ms;animation-name:dicePopIOS;"><div class="sum-card-ios"><div class="sum-title-ios">點數和</div><div class="sum-value-ios">{total}</div><div class="sum-sub-ios">X = {total}</div></div></div></div>'''
+    return f'''<div class="dice-wrapper" data-animation-key="{animation_key}">{items_html}</div>'''
 
 def render_kpi_html(title_cn, title_en, val, color="#1c1c1e"):
     return textwrap.dedent(f"""
@@ -470,10 +493,11 @@ def render_frame_ui(frame_n):
     spot_kpi3.markdown(render_kpi_html(f"估算 P(X={target_x})", f"Estimated P(X={target_x})", f"{cum_p_target[idx]:.4f}", "#007AFF"), unsafe_allow_html=True)
     spot_kpi4.markdown(render_kpi_html(f"理論 P(X={target_x})", f"Theory P(X={target_x})", f"{theory_p_target:.4f}", "#FF3B30"), unsafe_allow_html=True)
 
-    dice_spot.markdown(
-        render_dice_html(rolls[idx], animation_key=frame_n),
-        unsafe_allow_html=True
-    )
+    dice_html = render_dice_html(rolls[idx], animation_key=f"frame-{frame_n}")
+    if hasattr(dice_spot, "html"):
+        dice_spot.html(dice_html, height=150, scrolling=False)
+    else:
+        dice_spot.markdown(dice_html, unsafe_allow_html=True)
     chart_spot.plotly_chart(
         build_clean_plotly_chart(df_chart.iloc[:frame_n], total_n, target_x),
         use_container_width=True,
