@@ -1,7 +1,3 @@
-spot_kpi4 = kpi4.empty()
-
-with st.container():
-    st.markdown("<div style='margin-top: 10px;'><b>🎲 當前丟擲結果 (Current Roll Results)</b></div>", unsafe_allow_html=True)
     dice_spot = st.empty()
 
 with st.container():
