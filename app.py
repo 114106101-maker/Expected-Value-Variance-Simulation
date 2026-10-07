@@ -1,4 +1,5 @@
 import time
+import base64
 import textwrap
 import numpy as np
 import pandas as pd
@@ -416,6 +417,12 @@ def build_distribution_chart(relative_frequency):
     )
     return fig
 
+
+# 音效設定
+with st.sidebar.expander("🔊 音效設定", expanded=True):
+    sound_enabled = st.checkbox("啟用骰子音效", value=True, key="sound_enabled")
+    sound_volume = st.slider("音量", 0.0, 1.0, 0.35, 0.05, key="sound_volume")
+
 # 7. 主頁面內容
 st.markdown(textwrap.dedent(f"""
 <div class="card">
@@ -505,12 +512,17 @@ def render_frame_ui(frame_n):
     )
 
 # 8. 動畫與狀態控制
+if "last_sound_frame" not in st.session_state:
+    st.session_state.last_sound_frame = None
+
 if st.session_state.anim_status == "idle":
     render_frame_ui(1)
     st.info("👈 請點擊左側面板的 **「🚀 開始」** 播放動畫，或 **「⚡ 結算」** 直接觀看結果！")
 
 elif st.session_state.anim_status == "finished":
     render_frame_ui(total_n)
+    if sound_enabled:
+        st.markdown(render_sound_html("finish", sound_volume), unsafe_allow_html=True)
     final_error = abs(cum_p_target[-1] - theory_p_target)
     st.success(f"🎉 模擬完成！最終估算 P(X={target_x}) = {cum_p_target[-1]:.4f}，與理論值誤差僅 {final_error:.4f}")
 
