@@ -287,54 +287,97 @@ def run_simulation(total_n, num_dice, num_sides, seed):
     
     return rolls, X, cumulative_counts, cumulative_relative, cum_target, cum_p_target
 
-def render_dice_html(single_roll):
+def render_dice(single_roll):
     total = int(np.sum(single_roll))
-    items_html = ""
+
+    # 使用 Streamlit 原生 columns 顯示，避免 HTML 被當成文字輸出
+    cols = st.columns(len(single_roll) * 2 + 1)
+    col_index = 0
 
     for idx, val in enumerate(single_roll):
         val = int(val)
 
-        items_html += f"""
-        <div class="dice-card">
-            <span class="dice-icon">{val}</span>
-            <span class="dice-label">第 {idx + 1} 顆<br>= {val}</span>
-        </div>
-        """
+        with cols[col_index]:
+            st.markdown(
+                f"""
+                <div style="
+                    min-width:75px;
+                    height:85px;
+                    padding:8px;
+                    background:#ffffff;
+                    border-radius:18px;
+                    display:flex;
+                    flex-direction:column;
+                    align-items:center;
+                    justify-content:center;
+                    box-shadow:0 4px 14px rgba(0,0,0,0.06);
+                    border:1px solid rgba(0,0,0,0.08);
+                    text-align:center;
+                ">
+                    <div style="
+                        width:46px;
+                        height:46px;
+                        border-radius:10px;
+                        background:#ffffff;
+                        border:2px solid #1c1c1e;
+                        display:flex;
+                        align-items:center;
+                        justify-content:center;
+                        font-size:26px;
+                        font-weight:700;
+                        color:#1c1c1e;
+                    ">{val}</div>
+                    <div style="
+                        font-size:10px;
+                        font-weight:600;
+                        color:#8e8e93;
+                        margin-top:4px;
+                    ">第 {idx + 1} 顆</div>
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
+
+        col_index += 1
 
         if idx < len(single_roll) - 1:
-            items_html += """
+            with cols[col_index]:
+                st.markdown(
+                    "<div style='font-size:24px;font-weight:700;color:#8e8e93;text-align:center;padding-top:25px;'>+</div>",
+                    unsafe_allow_html=True
+                )
+            col_index += 1
+
+    with cols[col_index]:
+        st.markdown(
+            f"""
             <div style="
-                font-size:24px;
-                font-weight:700;
-                color:#8e8e93;
+                min-width:75px;
+                height:85px;
+                padding:8px;
+                background:linear-gradient(135deg,#34c759 0%,#28a745 100%);
+                border-radius:18px;
                 display:flex;
+                flex-direction:column;
                 align-items:center;
-            ">+</div>
-            """
-
-    items_html += f"""
-    <div style="
-        font-size:24px;
-        font-weight:700;
-        color:#8e8e93;
-        display:flex;
-        align-items:center;
-    ">=</div>
-
-    <div class="dice-card matched">
-        <span style="font-size:14px;font-weight:800;color:#ffffff;">
-            點數和
-        </span>
-        <span class="dice-icon">
-            {total}
-        </span>
-        <span class="dice-label" style="color:#ffffff;">
-            X = {total}
-        </span>
-    </div>
-    """
-
-    return f'<div class="dice-wrapper">{items_html}</div>'
+                justify-content:center;
+                box-shadow:0 10px 22px rgba(52,199,89,0.4);
+                text-align:center;
+                color:#ffffff;
+            ">
+                <div style="font-size:14px;font-weight:800;">點數和</div>
+                <div style="
+                    font-size:32px;
+                    font-weight:700;
+                    line-height:1.1;
+                    margin:3px 0;
+                    color:#ffffff;
+                ">{total}</div>
+                <div style="font-size:10px;font-weight:600;">X = {total}</div>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
 
 def render_kpi_html(title_cn, title_en, val, color="#1c1c1e"):
     return textwrap.dedent(f"""
@@ -499,10 +542,8 @@ def render_frame_ui(frame_n):
     spot_kpi3.markdown(render_kpi_html(f"估算 P(X={target_x})", f"Estimated P(X={target_x})", f"{cum_p_target[idx]:.4f}", "#007AFF"), unsafe_allow_html=True)
     spot_kpi4.markdown(render_kpi_html(f"理論 P(X={target_x})", f"Theory P(X={target_x})", f"{theory_p_target:.4f}", "#FF3B30"), unsafe_allow_html=True)
 
-    dice_spot.markdown(
-        render_dice_html(rolls[idx]),
-        unsafe_allow_html=True
-    )
+    with dice_spot.container():
+        render_dice(rolls[idx])
     chart_spot.plotly_chart(
         build_clean_plotly_chart(df_chart.iloc[:frame_n], total_n, target_x),
         use_container_width=True,
